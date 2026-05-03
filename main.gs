@@ -39,10 +39,13 @@ function processNewEmails() {
   const lastProcessed = parseInt(props.getProperty(CONFIG.LAST_PROCESSED_PROPERTY) || '0');
   const runStart = new Date().getTime();
 
+  const t = () => ((new Date().getTime() - runStart) / 1000).toFixed(1) + 's';
+
+  Logger.log('[' + t() + '] Searching Gmail...');
   const processedLabel = GmailApp.getUserLabelByName(CONFIG.PROCESSED_LABEL)
     || GmailApp.createLabel(CONFIG.PROCESSED_LABEL);
-
   const threads = GmailApp.search('has:attachment -label:' + CONFIG.PROCESSED_LABEL);
+  Logger.log('[' + t() + '] Found ' + threads.length + ' thread(s) to check.');
 
   let receiptsFound = 0;
   let attachmentsSkipped = 0;
@@ -58,11 +61,18 @@ function processNewEmails() {
 
       threadTouched = true;
       for (const attachment of attachments) {
+        Logger.log('[' + t() + '] Analyzing "' + attachment.getName() + '" from "' + message.getSubject() + '"...');
         try {
           const wasReceipt = processAttachment(attachment, message);
-          wasReceipt ? receiptsFound++ : attachmentsSkipped++;
+          if (wasReceipt) {
+            receiptsFound++;
+            Logger.log('[' + t() + '] ✓ Receipt logged.');
+          } else {
+            attachmentsSkipped++;
+            Logger.log('[' + t() + '] – Not a receipt, skipped.');
+          }
         } catch (e) {
-          Logger.log('Error on "' + attachment.getName() + '": ' + e.message);
+          Logger.log('[' + t() + '] Error: ' + e.message);
         }
       }
     }
@@ -70,7 +80,7 @@ function processNewEmails() {
     if (threadTouched) thread.addLabel(processedLabel);
   }
 
-  Logger.log('Done. Receipts logged: ' + receiptsFound + ', attachments skipped (not a receipt): ' + attachmentsSkipped + '.');
+  Logger.log('[' + t() + '] Done. Receipts logged: ' + receiptsFound + ', skipped: ' + attachmentsSkipped + '.');
   props.setProperty(CONFIG.LAST_PROCESSED_PROPERTY, runStart.toString());
 }
 

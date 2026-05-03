@@ -67,7 +67,7 @@ You can delete the original `Code.gs` file — it won't be used.
 3. Click **Run**
 4. A dialog will appear asking you to authorize permissions — click **Review permissions**
 5. Choose your Google account
-6. You will see a warning "Google hasn't verified this app" — click **Advanced** → **Go to Invoice Organizer (unsafe)**  
+6. You will see a warning "Google hasn't verified this app" — click **Advanced** → **Go to Invoice Organizer (unsafe)**
    *(This is normal for personal scripts you write yourself)*
 7. Click **Allow** to grant access to Gmail, Drive, and Sheets
 
@@ -165,16 +165,60 @@ npm run deploy
 
 ---
 
+## GitHub deployment (auto-deploy on push)
+
+Every push to `main` automatically deploys to Google Apps Script via GitHub Actions. Setup is a one-time process.
+
+### Step 1 — Initialize git and push to GitHub
+
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+```
+
+Then create a new repository on [github.com](https://github.com/new) and follow the instructions to push:
+
+```bash
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
+git branch -M main
+git push -u origin main
+```
+
+### Step 2 — Get your clasp credentials
+
+The GitHub Action needs to authenticate with Google on your behalf. After running `npx clasp login` (from the clasp setup above), your credentials are stored locally:
+
+```bash
+cat ~/.clasprc.json
+```
+
+Copy the entire output — it looks like `{"token":{"access_token":"..."},...}`.
+
+### Step 3 — Add the secret to GitHub
+
+1. Go to your repository on GitHub
+2. **Settings → Secrets and variables → Actions → New repository secret**
+3. Name: `CLASPRC_JSON`
+4. Value: paste the contents of `~/.clasprc.json`
+5. Click **Add secret**
+
+### Step 4 — Verify
+
+Push any change to `main` and go to the **Actions** tab in your GitHub repository. You should see the workflow run and complete successfully. From then on, every push to `main` deploys automatically.
+
+---
+
 ## Troubleshooting
 
-**"GEMINI_API_KEY not found" error**  
+**"GEMINI_API_KEY not found" error**
 You skipped Step 4 or made a typo in the property name. It must be exactly `GEMINI_API_KEY`.
 
-**"Google hasn't verified this app" warning**  
+**"Google hasn't verified this app" warning**
 This is expected for personal scripts. Click Advanced → Go to Invoice Organizer (unsafe) → Allow.
 
-**An email was not picked up**  
+**An email was not picked up**
 Check that the attachment is a PDF or image file. Other formats (e.g. `.zip`, `.docx`) are skipped. You can also run `processNewEmails` manually at any time.
 
-**The trigger isn't running**  
+**The trigger isn't running**
 In the editor go to **Triggers** (clock icon in the left sidebar) and confirm the `processNewEmails` trigger is listed. If not, run `setup` again.

@@ -1,0 +1,11 @@
+{
+  "name": "invoice-organizer",
+  "version": "1.0.0",
+  "scripts": {
+    "push": "clasp push",
+    "deploy": "clasp push && clasp deploy"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
+  }
+}

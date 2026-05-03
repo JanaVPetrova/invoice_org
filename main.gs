@@ -108,16 +108,23 @@ function isReceiptMimeType(attachment) {
 
 function processAttachment(attachment, message) {
   const analysis = analyzeReceipt(attachment, message.getSubject(), message.getPlainBody());
-  if (!analysis.isReceipt) return false;
+  if (analysis.is_deductible === false) return false;
 
-  const driveUrl = saveAttachmentToDrive(attachment, analysis.vendor, analysis.date);
+  const emailDate = message.getDate().toISOString().substring(0, 10);
+  const date = analysis.date || emailDate;
+  const driveUrl = saveAttachmentToDrive(attachment, analysis.vendor, date);
   appendToLedger({
-    date: analysis.date,
+    date,
     vendor: analysis.vendor,
     amount: analysis.amount,
-    currency: analysis.currency,
     category: analysis.category,
-    deductionReason: analysis.deductionReason,
+    legalBasis: analysis.legal_basis,
+    deductiblePercentage: analysis.deductible_percentage,
+    confidence: analysis.confidence,
+    isDeductible: analysis.is_deductible,
+    itemDescription: analysis.item_description,
+    reason: analysis.reason,
+    steuerberaterNote: analysis.steuerberater_note,
     driveUrl,
     emailSubject: message.getSubject(),
   });

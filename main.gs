@@ -44,7 +44,8 @@ function processNewEmails() {
   Logger.log('[' + t() + '] Searching Gmail...');
   const processedLabel = GmailApp.getUserLabelByName(CONFIG.PROCESSED_LABEL)
     || GmailApp.createLabel(CONFIG.PROCESSED_LABEL);
-  const threads = GmailApp.search('has:attachment -label:' + CONFIG.PROCESSED_LABEL);
+  const afterSeconds = lastProcessed > 0 ? Math.floor(lastProcessed / 1000) : Math.floor(runStart / 1000);
+  const threads = GmailApp.search('has:attachment -label:' + CONFIG.PROCESSED_LABEL + ' after:' + afterSeconds);
   Logger.log('[' + t() + '] Found ' + threads.length + ' thread(s) to check.');
 
   let receiptsFound = 0;

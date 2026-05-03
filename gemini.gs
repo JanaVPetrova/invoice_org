@@ -71,7 +71,10 @@ Email body (first 1000 chars): ${body.substring(0, 1000)}`;
   }
 
   const raw = JSON.parse(response.getContentText());
-  const text = raw.candidates[0].content.parts[0].text.trim();
+  const text = raw.candidates[0].content.parts[0].text.trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '');
 
+  Logger.log('Gemini response: ' + text);
   return JSON.parse(text);
 }

@@ -112,21 +112,18 @@ function processAttachment(attachment, message) {
 
   const emailDate = message.getDate().toISOString().substring(0, 10);
   const date = analysis.date || emailDate;
-  const driveUrl = saveAttachmentToDrive(attachment, analysis.vendor, date);
+  const driveUrl = saveAttachmentToDrive(attachment, analysis.item_description, date);
   appendToLedger({
     date,
-    vendor: analysis.vendor,
     amount: analysis.amount,
     category: analysis.category,
     legalBasis: analysis.legal_basis,
-    deductiblePercentage: analysis.deductible_percentage,
     confidence: analysis.confidence,
     isDeductible: analysis.is_deductible,
     itemDescription: analysis.item_description,
     reason: analysis.reason,
     steuerberaterNote: analysis.steuerberater_note,
     driveUrl,
-    emailSubject: message.getSubject(),
   });
   return true;
 }

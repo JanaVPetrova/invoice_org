@@ -1,4 +1,4 @@
-function saveAttachmentToDrive(attachment, vendor, date) {
+function saveAttachmentToDrive(attachment, description, date) {
   const year = date ? date.substring(0, 4) : String(new Date().getFullYear());
   const month = date ? date.substring(5, 7) : String(new Date().getMonth() + 1).padStart(2, '0');
 
@@ -6,9 +6,8 @@ function saveAttachmentToDrive(attachment, vendor, date) {
   const yearFolder = getOrCreateDriveFolder(year, root);
   const monthFolder = getOrCreateDriveFolder(month, yearFolder);
 
-  const safeName = [date || 'unknown-date', sanitize(vendor || 'unknown'), attachment.getName()]
-    .join('_')
-    .substring(0, 200);
+  const ext = attachment.getName().includes('.') ? '.' + attachment.getName().split('.').pop() : '';
+  const safeName = (date || 'unknown-date') + '_' + sanitize(description || attachment.getName()) + ext;
 
   const file = monthFolder.createFile(attachment.copyBlob().setName(safeName));
   return file.getUrl();

@@ -1,0 +1,114 @@
+function setup() {
+  const props = PropertiesService.getScriptProperties();
+
+  const apiKey = props.getProperty(CONFIG.GEMINI_API_KEY_PROPERTY);
+  if (!apiKey) {
+    throw new Error('Set GEMINI_API_KEY in Project Settings → Script Properties before running setup.');
+  }
+
+  getOrCreateDriveFolder(CONFIG.DRIVE_FOLDER_NAME);
+
+  let spreadsheet;
+  const existingSheetId = props.getProperty(CONFIG.SHEET_ID_PROPERTY);
+  if (existingSheetId) {
+    spreadsheet = SpreadsheetApp.openById(existingSheetId);
+  } else {
+    spreadsheet = SpreadsheetApp.create(CONFIG.SHEET_NAME);
+    initSheet(spreadsheet.getActiveSheet());
+    props.setProperty(CONFIG.SHEET_ID_PROPERTY, spreadsheet.getId());
+  }
+
+  GmailApp.createLabel(CONFIG.PROCESSED_LABEL);
+
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'processNewEmails')
+    .forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('processNewEmails')
+    .timeBased()
+    .everyHours(CONFIG.TRIGGER_INTERVAL_HOURS)
+    .create();
+
+  props.setProperty(CONFIG.LAST_PROCESSED_PROPERTY, new Date().getTime().toString());
+
+  Logger.log('Setup complete.');
+  Logger.log('Sheet: ' + spreadsheet.getUrl());
+}
+
+function processNewEmails() {
+  const props = PropertiesService.getScriptProperties();
+  const lastProcessed = parseInt(props.getProperty(CONFIG.LAST_PROCESSED_PROPERTY) || '0');
+  const runStart = new Date().getTime();
+
+  const processedLabel = GmailApp.getUserLabelByName(CONFIG.PROCESSED_LABEL)
+    || GmailApp.createLabel(CONFIG.PROCESSED_LABEL);
+
+  const threads = GmailApp.search('has:attachment -label:' + CONFIG.PROCESSED_LABEL);
+
+  let receiptsFound = 0;
+  let attachmentsSkipped = 0;
+
+  for (const thread of threads) {
+    let threadTouched = false;
+
+    for (const message of thread.getMessages()) {
+      if (message.getDate().getTime() <= lastProcessed) continue;
+
+      const attachments = message.getAttachments().filter(isReceiptMimeType);
+      if (attachments.length === 0) continue;
+
+      threadTouched = true;
+      for (const attachment of attachments) {
+        try {
+          const wasReceipt = processAttachment(attachment, message);
+          wasReceipt ? receiptsFound++ : attachmentsSkipped++;
+        } catch (e) {
+          Logger.log('Error on "' + attachment.getName() + '": ' + e.message);
+        }
+      }
+    }
+
+    if (threadTouched) thread.addLabel(processedLabel);
+  }
+
+  Logger.log('Done. Receipts logged: ' + receiptsFound + ', attachments skipped (not a receipt): ' + attachmentsSkipped + '.');
+  props.setProperty(CONFIG.LAST_PROCESSED_PROPERTY, runStart.toString());
+}
+
+function debugReprocess() {
+  const lookbackMs = CONFIG.DEBUG_LOOKBACK_HOURS * 60 * 60 * 1000;
+  const since = new Date().getTime() - lookbackMs;
+
+  const processedLabel = GmailApp.getUserLabelByName(CONFIG.PROCESSED_LABEL);
+  if (processedLabel) {
+    const labeled = GmailApp.search('label:' + CONFIG.PROCESSED_LABEL + ' newer_than:' + CONFIG.DEBUG_LOOKBACK_HOURS + 'h');
+    labeled.forEach(t => t.removeLabel(processedLabel));
+    Logger.log('Removed processed label from ' + labeled.length + ' thread(s).');
+  }
+
+  PropertiesService.getScriptProperties().setProperty(CONFIG.LAST_PROCESSED_PROPERTY, since.toString());
+  Logger.log('Lookback window set to ' + CONFIG.DEBUG_LOOKBACK_HOURS + 'h. Running processNewEmails...');
+  processNewEmails();
+}
+
+function isReceiptMimeType(attachment) {
+  const mime = attachment.getContentType();
+  return mime === 'application/pdf' || mime.startsWith('image/');
+}
+
+function processAttachment(attachment, message) {
+  const analysis = analyzeReceipt(attachment, message.getSubject(), message.getPlainBody());
+  if (!analysis.isReceipt) return false;
+
+  const driveUrl = saveAttachmentToDrive(attachment, analysis.vendor, analysis.date);
+  appendToLedger({
+    date: analysis.date,
+    vendor: analysis.vendor,
+    amount: analysis.amount,
+    currency: analysis.currency,
+    category: analysis.category,
+    deductionReason: analysis.deductionReason,
+    driveUrl,
+    emailSubject: message.getSubject(),
+  });
+  return true;
+}

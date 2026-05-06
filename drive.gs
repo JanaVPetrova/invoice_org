@@ -1,15 +1,29 @@
+function getRootFolderName() {
+  const yy = String(new Date().getFullYear()).slice(-2);
+  return CONFIG.DRIVE_ROOT_FOLDER_PREFIX + "'" + yy;
+}
+
+function getInvoicesFolder() {
+  const root = getOrCreateDriveFolder(getRootFolderName());
+  return getOrCreateDriveFolder(CONFIG.DRIVE_INVOICES_FOLDER, root);
+}
+
+function datePrefix(date) {
+  return (date || new Date().toISOString().substring(0, 10)).replace(/-/g, '_');
+}
+
 function saveAttachmentToDrive(attachment, description, date) {
-  const year = date ? date.substring(0, 4) : String(new Date().getFullYear());
-  const month = date ? date.substring(5, 7) : String(new Date().getMonth() + 1).padStart(2, '0');
-
-  const root = getOrCreateDriveFolder(CONFIG.DRIVE_FOLDER_NAME);
-  const yearFolder = getOrCreateDriveFolder(year, root);
-  const monthFolder = getOrCreateDriveFolder(month, yearFolder);
-
+  const folder = getInvoicesFolder();
   const ext = attachment.getName().includes('.') ? '.' + attachment.getName().split('.').pop() : '';
-  const safeName = (date || 'unknown-date') + '_' + sanitize(description || attachment.getName()) + ext;
+  const name = datePrefix(date) + '_' + sanitize(description || 'attachment') + ext;
+  const file = folder.createFile(attachment.copyBlob().setName(name));
+  return file.getUrl();
+}
 
-  const file = monthFolder.createFile(attachment.copyBlob().setName(safeName));
+function saveEmailBodyToDrive(htmlBody, description, date) {
+  const folder = getInvoicesFolder();
+  const name = datePrefix(date) + '_' + sanitize(description || 'email') + '_email.html';
+  const file = folder.createFile(Utilities.newBlob(htmlBody, 'text/html', name));
   return file.getUrl();
 }
 

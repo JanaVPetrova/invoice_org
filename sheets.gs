@@ -2,7 +2,7 @@ function initSheet(sheet) {
   const headers = [
     'Date', 'Amount', 'Category', 'Legal Basis',
     'Confidence', 'Is Deductible', 'Item Description', 'Reason',
-    'Steuerberater Note', 'Receipt', 'Processed At',
+    'Steuerberater Note', 'Receipt', 'Email', 'Processed At',
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
   sheet.setFrozenRows(1);
@@ -12,7 +12,7 @@ function initSheet(sheet) {
   sheet.setColumnWidth(10, 200);
 }
 
-function appendToLedger({ date, amount, category, legalBasis, confidence, isDeductible, itemDescription, reason, steuerberaterNote, driveUrl }) {
+function appendToLedger({ date, amount, category, legalBasis, confidence, isDeductible, itemDescription, reason, steuerberaterNote, driveUrl, emailUrl }) {
   const sheetId = PropertiesService.getScriptProperties().getProperty(CONFIG.SHEET_ID_PROPERTY);
   const sheet = SpreadsheetApp.openById(sheetId).getActiveSheet();
 
@@ -27,6 +27,7 @@ function appendToLedger({ date, amount, category, legalBasis, confidence, isDedu
     reason,
     steuerberaterNote,
     driveUrl,
+    emailUrl,
     new Date().toISOString(),
   ]);
 }

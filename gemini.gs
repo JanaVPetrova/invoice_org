@@ -20,6 +20,7 @@ Consider all relevant deductibility categories:
 - AfA (§7)
 
 Be generous — flag anything potentially deductible and let the Steuerberater decide.
+Write the reason and the Steuerberater note in English and keep both brief.
 
 Return ONLY valid JSON:
 {
@@ -28,6 +29,7 @@ Return ONLY valid JSON:
   "category": "...",
   "legal_basis": "...",
   "deductible_percentage": 100,
+  "short_name": "1-2 word PascalCase file name, no spaces, e.g. MonitorDell, Headphones, ElectricityBill, ProfBooksAudible",
   "item_description": "...",
   "amount": "...",
   "vendor": "...",

@@ -6,7 +6,7 @@ function setup() {
     throw new Error('Set GEMINI_API_KEY in Project Settings → Script Properties before running setup.');
   }
 
-  getOrCreateDriveFolder(CONFIG.DRIVE_FOLDER_NAME);
+  getInvoicesFolder();
 
   let spreadsheet;
   const existingSheetId = props.getProperty(CONFIG.SHEET_ID_PROPERTY);
@@ -25,7 +25,8 @@ function setup() {
     .forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('processNewEmails')
     .timeBased()
-    .everyHours(CONFIG.TRIGGER_INTERVAL_HOURS)
+    .everyDays(1)
+    .atHour(CONFIG.TRIGGER_HOUR)
     .create();
 
   props.setProperty(CONFIG.LAST_PROCESSED_PROPERTY, new Date().getTime().toString());
@@ -52,15 +53,15 @@ function processNewEmails() {
   let attachmentsSkipped = 0;
 
   for (const thread of threads) {
-    let threadTouched = false;
+    let hasNewMessages = false;
 
     for (const message of thread.getMessages()) {
       if (message.getDate().getTime() <= lastProcessed) continue;
+      hasNewMessages = true;
 
       const attachments = message.getAttachments().filter(isReceiptMimeType);
       if (attachments.length === 0) continue;
 
-      threadTouched = true;
       for (const attachment of attachments) {
         Logger.log('[' + t() + '] Analyzing "' + attachment.getName() + '" from "' + message.getSubject() + '"...');
         try {
@@ -78,11 +79,23 @@ function processNewEmails() {
       }
     }
 
-    if (threadTouched) thread.addLabel(processedLabel);
+    if (hasNewMessages) thread.addLabel(processedLabel);
   }
 
   Logger.log('[' + t() + '] Done. Receipts logged: ' + receiptsFound + ', skipped: ' + attachmentsSkipped + '.');
   props.setProperty(CONFIG.LAST_PROCESSED_PROPERTY, runStart.toString());
+
+  if (receiptsFound > 0) {
+    const sheetId = props.getProperty(CONFIG.SHEET_ID_PROPERTY);
+    const sheetUrl = 'https://docs.google.com/spreadsheets/d/' + sheetId;
+    const recipient = Session.getActiveUser().getEmail();
+    GmailApp.sendEmail(
+      recipient,
+      receiptsFound + ' new deductible(s) added',
+      receiptsFound + ' new item(s) were added to your tax deductions sheet.\n\n' + sheetUrl
+    );
+    Logger.log('[' + t() + '] Summary email sent to ' + recipient + '.');
+  }
 }
 
 function debugReprocess() {
@@ -112,7 +125,8 @@ function processAttachment(attachment, message) {
 
   const emailDate = message.getDate().toISOString().substring(0, 10);
   const date = analysis.date || emailDate;
-  const driveUrl = saveAttachmentToDrive(attachment, analysis.item_description, date);
+  const driveUrl = saveAttachmentToDrive(attachment, analysis.short_name, date);
+  const emailUrl = saveEmailBodyToDrive(message.getBody(), analysis.short_name, date);
   appendToLedger({
     date,
     amount: analysis.amount,
@@ -124,6 +138,7 @@ function processAttachment(attachment, message) {
     reason: analysis.reason,
     steuerberaterNote: analysis.steuerberater_note,
     driveUrl,
+    emailUrl,
   });
   return true;
 }
